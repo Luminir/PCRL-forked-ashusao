@@ -23,6 +23,8 @@ def cost_single(my_node, my_station, my_node_dict, my_cost_dict):
     """
     s_pos, s_x, s_dict = my_station[0], my_station[1], my_station[2]
     # check if distance has to be calculated
+    if my_node[0] not in my_node_dict:
+        my_node_dict[my_node[0]] = {}
     if s_pos[0] in my_node_dict[my_node[0]]:
         distance = my_node_dict[my_node[0]][s_pos[0]]
     else:

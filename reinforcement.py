@@ -76,20 +76,31 @@ if __name__ == '__main__':
     random.seed(seed)
     # Instantiate the env
     location = "Hanoi"  # take a location of your choice
-    graph_file = "Graph/" + location + "/" + location + ".graphml"
-    node_file = "Graph/" + location + "/nodes_extended_" + location + ".txt"
-    plan_file = "Graph/" + location + "/existingplan_" + location + ".pkl"
+    graph_file = f"Graph/{location}/{location}.graphml"
+    
+    # Path to the nodes_extended file (currently in root of Graph)
+    node_file = f"Graph/nodes_extended_{location}.txt"
+    
+    # Path to the existing plan (ensuring it points to the Pickle folder)
+    plan_file = f"Graph/Pickle/existingplan_{location}.pkl"
 
-    env = ev.StationPlacement(graph_file, node_file, plan_file)
+    # Make sure the log directory is ready
     log_dir = "tmp_Hanoi/"
-    modelname = "best_model_" + location + "_"
+    os.makedirs(log_dir, exist_ok=True)
+    
+    modelname = f"best_model_{location}_"
 
-    """
-    Define and train the agent 
-    """
+    # Instantiate the env
+    env = ev.StationPlacement(graph_file, node_file, plan_file)
     env = Monitor(env, log_dir)
-    model = DQN("MlpPolicy", env, verbose=1, batch_size=128, buffer_size=10000, learning_rate=0.001, device='cpu',
-                seed=seed)
+
+    # Training logic
+    # Note: If you have a GPU, change device='cpu' to device='cuda' to finish in ~30 mins
+    model = DQN("MlpPolicy", env, verbose=1, batch_size=128, buffer_size=10000, 
+                learning_rate=0.001, device='cpu', seed=seed)
+    
     callback = SaveOnBestTrainingRewardCallback(check_freq=400, my_log_dir=log_dir, my_modelname=modelname)
-    model.learn(total_timesteps=200000, log_interval=10 ** 4, callback=callback)
+    
+    print("Starting Training... This may take several hours.")
+    model.learn(total_timesteps=200000, log_interval=100, callback=callback)
 

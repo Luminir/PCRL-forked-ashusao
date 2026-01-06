@@ -119,5 +119,38 @@ if __name__ == '__main__':
     with open(f"../Graph/nodes_extended_{location}.txt", 'w', encoding='utf-8') as file:
         file.write(str(node_list))
     
-    pickle.dump([], open(f"../Graph/Pickle/existingplan_{location}.pkl", "wb"))
-    print(f"✅ Success! File saved at: ../Graph/nodes_extended_{location}.txt")
+    # pickle.dump([], open(f"../Graph/Pickle/existingplan_{location}.pkl", "wb"))
+    # print(f"✅ Success! File saved at: ../Graph/nodes_extended_{location}.txt")
+
+    # TODO: maybe remove?
+    # UPDATE CODE FROM SƠN: dont start empty like above else reiforcement.py learning dont knkow where to start
+    print("Initializing node metadata and seeding existing plan...")
+    
+    # 1. Pre-initialize the missing keys for all nodes to prevent KeyErrors
+    for node in node_list:
+        node[1]["charging station"] = None
+        node[1]["distance"] = None
+
+    # 2. Define a basic starting station
+    s_pos = node_list[0] 
+    s_config = np.array([0, 1, 0]) # One Type-2 charger
+    
+    # 3. Create the station object with full initialization
+    # Must use s_dictionnary() to set all required keys (fee, capability, W_s, service rate, etc.)
+    initial_station = [s_pos, s_config, {}]
+    initial_station = ef.s_dictionnary(initial_station, node_list)
+
+    # 4. Perform the first assignment to link nodes to this station
+    # This populates the node[1]["charging station"] keys correctly
+    node_list, _, _ = ef.station_seeking([initial_station], node_list, {}, {})
+    existing_plan = [initial_station]
+    
+    # 6. Save final results with full metadata
+    with open(f"../Graph/nodes_extended_{location}.txt", 'w', encoding='utf-8') as file:
+        file.write(str(node_list))
+        
+    plan_path = f"../Graph/Pickle/existingplan_{location}.pkl"
+    with open(plan_path, "wb") as f:
+        pickle.dump(existing_plan, f)
+    
+    print(f"✅ Success! Seeding complete. Existing plan at: {plan_path}")

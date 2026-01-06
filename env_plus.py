@@ -1,5 +1,5 @@
-import gym
-from gym import spaces
+import gymnasium as gym
+from gymnasium import spaces
 import numpy as np
 from stable_baselines3.common.env_checker import check_env
 import pickle
@@ -227,10 +227,14 @@ class StationPlacement(gym.Env):
         shape = (self.row_length + len(ef.CHARGING_POWER)) * len(self.node_list) + 1
         self.observation_space = spaces.Box(low=-1, high=1, shape=(shape,), dtype=np.float16)
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
         """
         Reset the state of the environment to an initial state
         """
+        # Handle the seed for Gymnasium compatibility
+        if seed is not None:
+            np.random.seed(seed)
+            
         self.budget = ef.BUDGET
         self.game_over = False
         self.plan_instance = Plan(self.node_list, StationPlacement.node_dict, StationPlacement.cost_dict,
@@ -245,7 +249,9 @@ class StationPlacement(gym.Env):
         self.config_dict = prepare_config()
         coverage(self.node_list, self.plan_instance.plan)
         obs = self.establish_observation()
-        return obs
+        
+        # Return obs AND an empty info dict (Required by new SB3/Gymnasium)
+        return obs, {}
 
     def init_hilfe(self, my_node):
         StationPlacement.node_dict[my_node[0]] = {}  # prepare node_dict
