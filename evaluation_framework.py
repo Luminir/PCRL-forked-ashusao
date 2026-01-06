@@ -11,7 +11,8 @@ def prepare_graph(my_graph_file, my_node_file):
     loads graph and nodes prepared in load_graph.py
     """
     my_graph = ox.load_graphml(my_graph_file)
-    with open(my_node_file, "r") as file:
+    # CHANGE THIS LINE TO INCLUDE encoding="utf-8" for vietnamese lol
+    with open(my_node_file, "r", encoding="utf-8") as file:
         my_node_list = eval(file.readline())
     return my_graph, my_node_list
 
