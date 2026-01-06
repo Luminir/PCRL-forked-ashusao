@@ -351,7 +351,8 @@ class StationPlacement(gym.Env):
             self.game_over = True
         # if self.game_over:
         #     print("Best score {}.".format(self.best_score))
-        return obs, reward, self.game_over, {}
+        # Return gymnasium format: (obs, reward, terminated, truncated, info)
+        return obs, reward, self.game_over, False, {}
 
     def station_config_check(self, my_station):
         """
