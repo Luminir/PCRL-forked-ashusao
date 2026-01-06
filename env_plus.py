@@ -426,7 +426,7 @@ class StationPlacement(gym.Env):
 
 
 if __name__ == '__main__':
-    location = "Toy_Example"
+    location = "Hanoi"
     graph_file = "Graph/" + location + "/" + location + ".graphml"
     node_file = "Graph/" + location + "/nodes_extended_" + location + ".txt"
     plan_file = "Graph/" + location + "/existingplan_" + location + ".pkl"

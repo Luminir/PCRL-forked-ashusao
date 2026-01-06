@@ -75,13 +75,13 @@ if __name__ == '__main__':
     np.random.seed(seed)
     random.seed(seed)
     # Instantiate the env
-    location = "Toy_Example"  # take a location of your choice
+    location = "Hanoi"  # take a location of your choice
     graph_file = "Graph/" + location + "/" + location + ".graphml"
     node_file = "Graph/" + location + "/nodes_extended_" + location + ".txt"
     plan_file = "Graph/" + location + "/existingplan_" + location + ".pkl"
 
     env = ev.StationPlacement(graph_file, node_file, plan_file)
-    log_dir = "tmp_Toy_Example/"
+    log_dir = "tmp_Hanoi/"
     modelname = "best_model_" + location + "_"
 
     """

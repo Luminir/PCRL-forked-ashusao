@@ -3,14 +3,18 @@ from shapely.geometry import Point, MultiPolygon, LineString, Polygon
 from shapely.ops import split
 import numpy as np
 import pickle
+import os
 
-"""
-create graph and grid for the test set Hannover
-"""
 n_x, n_y = 32, 32
-# coordinates for Hannover
-rec = [(9.6044300, 52.3051373), (9.6044300, 52.4543349), (9.9184259, 52.4543349), (9.9184259, 52.3051373)]
 
+# CORRECT Coordinates for Hanoi (covering the main urban districts)
+# (Longitude, Latitude)
+rec = [
+    (105.74, 20.95), # Bottom-Left
+    (105.74, 21.09), # Top-Left
+    (105.90, 21.09), # Top-Right
+    (105.90, 20.95)  # Bottom-Right
+]
 
 def grid_preparation(my_rec):
     """
@@ -49,22 +53,35 @@ def grid_location(my_node, grids):
 
 
 if __name__ == '__main__':
-    G = ox.graph_from_address('350 5th Ave, New York, New York', network_type='drive', dist=250)
+    location = "Hanoi"
+    if not os.path.exists(f"../Graph/{location}"):
+        os.makedirs(f"../Graph/{location}")
 
-    # calculate for each node in which cell it is and for each grid cell how many nodes it has inside
+    print("Downloading Hanoi Urban Map...")
+    # Using a 7km radius from Hoan Kiem to keep the node count manageable for RL
+    G = ox.graph_from_point((21.0285, 105.8542), dist=7000, network_type="drive")
+
     node_list = list(G.nodes(data=True))
-    print(len(node_list))
+    print(f"Nodes found: {len(node_list)}")
+
     grids = grid_preparation(rec)
     grid_density = np.zeros((n_x, n_y))
+    
+    outside_count = 0
     for node in node_list:
         grid_location(node, grids)
         row, column = node[1]["row"], node[1]["column"]
-        grid_density[row][column] += 1
-    print("Grid density is calculated.")
+        if row is not None and column is not None:
+            grid_density[row][column] += 1
+        else:
+            outside_count += 1
 
-    # Save the graph files
-    location = "Toy_Example"
-    ox.save_graphml(G, filepath="../Graph/" + location + "/" + location + ".graphml")
-    with open("../Graph/" + location + "/node_list_" + location + ".txt", 'w') as file:
+    print(f"Grid density calculated. {outside_count} nodes were outside the grid.")
+
+    # Save with UTF-8 encoding to prevent the 'ầ' error
+    ox.save_graphml(G, filepath=f"../Graph/{location}/{location}.graphml")
+    with open(f"../Graph/{location}/node_list_{location}.txt", 'w', encoding='utf-8') as file:
         file.write(str(node_list))
-    pickle.dump(grid_density, open("../Graph/" + location + "/grid_density_" + location + ".pkl", "wb"))
+    
+    pickle.dump(grid_density, open(f"../Graph/{location}/grid_density_{location}.pkl", "wb"))
+    print("Success! Files saved in ../Graph/Hanoi/")

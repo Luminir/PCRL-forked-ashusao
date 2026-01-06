@@ -7,14 +7,14 @@ import env_plus as ev
 Generate a charging plan based on the model.
 """
 # Instantiate the env
-location = "Toy_Example"
+location = "Hanoi"
 
 graph_file = "Graph/" + location + "/" + location + ".graphml"
 node_file = "Graph/" + location + "/nodes_extended_" + location + ".txt"
 plan_file = "Graph/" + location + "/existingplan_" + location + ".pkl"
 
 env = ev.StationPlacement(graph_file, node_file, plan_file)
-log_dir = "tmp_Toy_Example/"
+log_dir = "tmp_Hanoi/"
 
 """
 Ab hier kommt die Evaluation.

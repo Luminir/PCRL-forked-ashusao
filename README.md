@@ -60,4 +60,7 @@ deactivate
 # SEARCH `TOY_EXAMPLE` and replace them will real folder
 
    
+# how to run for 'HANOI'
+`run python Preprocessing/load_graph.py` first!!!!!!!!!!
+
 

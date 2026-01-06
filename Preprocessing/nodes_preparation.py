@@ -59,7 +59,7 @@ def modify_demand_dict(my_demand_matrix):
 
 
 if __name__ == '__main__':
-    location = "Toy_Example"
+    location = "Hanoi"
     graph_file = "../Graph/" + location + ".graphml"
     node_file = "../Graph/node_list_" + location + ".txt"
     graph, node_list = ef.prepare_graph(graph_file, node_file)
