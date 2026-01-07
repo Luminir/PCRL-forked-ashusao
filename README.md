@@ -63,5 +63,5 @@ deactivate
 # how to run for 'HANOI'
 `run python Preprocessing/load_graph.py` first!!!!!!!!!!
 
-step so far is to run trainning on reinforcement learning
+# step so far is to run trainning on reinforcement learning
 

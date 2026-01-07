@@ -84,7 +84,6 @@ if __name__ == '__main__':
     # Path to the existing plan (ensuring it points to the Pickle folder)
     plan_file = f"Graph/Pickle/existingplan_{location}.pkl"
 
-    # Make sure the log directory is ready
     log_dir = "tmp_Hanoi/"
     os.makedirs(log_dir, exist_ok=True)
     
