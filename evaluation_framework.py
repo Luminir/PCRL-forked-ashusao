@@ -17,7 +17,7 @@ def prepare_graph(my_graph_file, my_node_file):
     return my_graph, my_node_list
 
 
-def cost_single(my_node, my_station, my_node_dict, my_cost_dict):
+def cost_single(my_node, my_station, my_node_dict, my_cost_dict, graph):
     """
     calculate the social cost for one station
     """
@@ -28,7 +28,7 @@ def cost_single(my_node, my_station, my_node_dict, my_cost_dict):
     if s_pos[0] in my_node_dict[my_node[0]]:
         distance = my_node_dict[my_node[0]][s_pos[0]]
     else:
-        distance = haversine(s_pos, my_node)
+        distance = calculate_distance(graph, s_pos, my_node)
         my_node_dict[my_node[0]][s_pos[0]] = distance
     # check if cost has to be calculated
     try:
@@ -45,12 +45,12 @@ def cost_single(my_node, my_station, my_node_dict, my_cost_dict):
     return cost_node, my_node_dict, my_cost_dict
 
 
-def station_seeking(my_plan, my_node_list, my_node_dict, my_cost_dict):
+def station_seeking(my_plan, my_node_list, my_node_dict, my_cost_dict, graph):
     """
     output station assignment: Each node gets assigned the charging station with minimal social cost
     """
     for the_node in my_node_list:
-        cost_list = [cost_single(the_node, my_station, my_node_dict, my_cost_dict) for my_station in my_plan]
+        cost_list = [cost_single(the_node, my_station, my_node_dict, my_cost_dict, graph) for my_station in my_plan]
         costminindex = cost_list.index(min(cost_list))
         chosen_station = my_plan[costminindex]
         s_pos = chosen_station[0]
@@ -96,9 +96,10 @@ def influence_radius(my_station):
     return my_station
 
 
-def haversine(s_pos, my_node):
+def haversine_fallback(s_pos, my_node):
     """
     yields the approximate distance of two GPS points, middle computational cost
+    This is the original straight-line distance calculation used as fallback
     """
     lon1, lat1 = s_pos[1]['x'], s_pos[1]['y']
     R_earth = 6372800  # approximate radius of earth. [R_earth] = m
@@ -113,17 +114,56 @@ def haversine(s_pos, my_node):
     return distance
 
 
-def nodes_covered(my_station, my_node_list):
+def calculate_distance(graph, s_pos, my_node):
+    """
+    Calculate network-based distance using OSMnx graph shortest path.
+    Falls back to Haversine formula if network path cannot be found.
+    
+    Args:
+        graph: OSMnx graph object
+        s_pos: station position node (tuple of node_id and attributes dict)
+        my_node: target node (tuple of node_id and attributes dict)
+    
+    Returns:
+        distance in meters
+    """
+    try:
+        # Extract GPS coordinates
+        lon1, lat1 = s_pos[1]['x'], s_pos[1]['y']
+        lon2, lat2 = my_node[1]['x'], my_node[1]['y']
+        
+        # Find nearest graph nodes to the GPS coordinates
+        import networkx as nx
+        orig_node = ox.nearest_nodes(graph, lon1, lat1)
+        dest_node = ox.nearest_nodes(graph, lon2, lat2)
+        
+        # Calculate shortest path length
+        distance = nx.shortest_path_length(graph, orig_node, dest_node, weight='length')
+        
+        # Ensure minimum distance to avoid division by zero
+        if distance < 0.1:
+            distance = 0.1
+            
+        return distance
+        
+    except Exception as e:
+        # Debug: print the error to see why it's falling back
+        print(f"Distance calculation fallback due to: {type(e).__name__}: {e}")
+        return haversine_fallback(s_pos, my_node)
+
+
+
+def nodes_covered(my_station, my_node_list, graph):
     """
     yields the number of nodes within the influence radius of the station
     """
     s_pos, s_x, s_dict = my_station[0], my_station[1], my_station[2]
     radius_s = s_dict["radius"]
-    I_1 = sum([1 if haversine(s_pos, my_node) <= radius_s else 0 for my_node in my_node_list])
+    I_1 = sum([1 if calculate_distance(graph, s_pos, my_node) <= radius_s else 0 for my_node in my_node_list])
     return I_1
 
 
-def node_coverage(my_plan, my_node):
+def node_coverage(my_plan, my_node, graph):
     """
     yields the number of nodes within the influence radius of the station
     """
@@ -132,7 +172,7 @@ def node_coverage(my_plan, my_node):
     for my_station in my_plan:
         s_pos, s_x, s_dict = my_station[0], my_station[1], my_station[2]
         radius_s = s_dict["radius"]
-        distance = haversine(s_pos, my_node)
+        distance = calculate_distance(graph, s_pos, my_node)
         if distance <= radius_s:
             I_1 += 1
     for ith in range(I_1):
@@ -141,7 +181,7 @@ def node_coverage(my_plan, my_node):
     return single_benefit
 
 
-def total_number_EVs(my_station, my_node_list):
+def total_number_EVs(my_station, my_node_list, graph):
     """
     yields total number of EVs coming to S in a unit time interval for charging
     """
@@ -177,27 +217,27 @@ def W_s(my_station):
     return my_station
 
 
-def s_dictionnary(my_station, my_node_list):
+def s_dictionnary(my_station, my_node_list, graph):
     """
     returns the dictionnary for the station
     """
     my_station = installment_fee(my_station)
     my_station = charging_capability(my_station)
     my_station = influence_radius(my_station)
-    my_station = total_number_EVs(my_station, my_node_list)
+    my_station = total_number_EVs(my_station, my_node_list, graph)
     my_station = service_rate(my_station)
     my_station = W_s(my_station)
     return my_station
 
 
 # SCORE #####################################################################
-def social_benefit(my_plan, my_node_list):
+def social_benefit(my_plan, my_node_list, graph):
     """
     returns the social benefit of the charging plan (our definition of benefit)
     """
     my_benefit = 0
     for my_node in my_node_list:
-        I3 = node_coverage(my_plan, my_node)
+        I3 = node_coverage(my_plan, my_node, graph)
         my_benefit += I3
     my_benefit /= len(my_node_list)
     return my_benefit
@@ -225,7 +265,7 @@ def waiting_time(my_plan):
     return my_wait_time / time_unit
 
 
-def social_cost(my_plan, my_node_list):
+def social_cost(my_plan, my_node_list, graph):
     """
     returns the social cost, i.e. the negative side of the charging plan
     """
@@ -237,11 +277,11 @@ def social_cost(my_plan, my_node_list):
     return my_social_cost
 
 
-def existing_score(my_existing_plan, my_node_list):
+def existing_score(my_existing_plan, my_node_list, graph):
     """
     computes the score of the existing infrastructure
     """
-    my_benefit = social_benefit(my_existing_plan, my_node_list)
+    my_benefit = social_benefit(my_existing_plan, my_node_list, graph)
     travel_time = travel_cost(my_node_list)  # dimensionless
     charg_time = charging_time(my_existing_plan)  # dimensionless
     wait_time = waiting_time(my_existing_plan)
@@ -250,14 +290,14 @@ def existing_score(my_existing_plan, my_node_list):
     return my_benefit, my_cost, charg_time, wait_time, travel_time
 
 
-def norm_score(my_plan, my_node_list, norm_benefit, norm_charg, norm_wait, norm_travel):
+def norm_score(my_plan, my_node_list, norm_benefit, norm_charg, norm_wait, norm_travel, graph):
     """
     same as score, but normalised.
     """
     my_score = -my_inf
     if not my_plan:
         return my_score
-    benefit = social_benefit(my_plan, my_node_list) / norm_benefit
+    benefit = social_benefit(my_plan, my_node_list, graph) / norm_benefit
     cost_travel = travel_cost(my_node_list) / norm_travel  # dimensionless
     charg_time = charging_time(my_plan) / norm_charg  # dimensionless
     wait_time = waiting_time(my_plan) / norm_wait  # dimensionless
@@ -266,7 +306,7 @@ def norm_score(my_plan, my_node_list, norm_benefit, norm_charg, norm_wait, norm_
     return my_score, benefit, cost, charg_time, wait_time, cost_travel
 
 
-def score(my_plan, my_node_list):
+def score(my_plan, my_node_list, graph):
     """
     returns the final result, i.e., the social score
     """
@@ -275,8 +315,8 @@ def score(my_plan, my_node_list):
     cost = 0
     if not my_plan:
         return my_score, benefit, cost
-    benefit = social_benefit(my_plan, my_node_list)  # dimensionless
-    cost = social_cost(my_plan, my_node_list)
+    benefit = social_benefit(my_plan, my_node_list, graph)  # dimensionless
+    cost = social_cost(my_plan, my_node_list, graph)
     my_score = my_lambda * benefit - (1 - my_lambda) * cost
     return my_score, benefit, cost
 

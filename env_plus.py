@@ -44,14 +44,14 @@ def prepare_config():
     return my_config_dict
 
 
-def initial_solution(my_config_dict, my_node_list, s_pos):
+def initial_solution(my_config_dict, my_node_list, s_pos, graph):
     """
     get the initial solution for the charging configuration
     """
     W = 0  # minimum capacity constraint
     radius = 50
     for my_node in my_node_list:
-        if ef.haversine(s_pos, my_node) <= radius:
+        if ef.calculate_distance(graph, s_pos, my_node) <= radius:
             W += ef.weak_demand(my_node)
     W = ceil(W) * ef.BATTERY
     key_list = sorted(list(my_config_dict.keys()))
@@ -62,12 +62,12 @@ def initial_solution(my_config_dict, my_node_list, s_pos):
     return best_config
 
 
-def coverage(my_node_list, my_plan):
+def coverage(my_node_list, my_plan, graph):
     """
     see which nodes are covered by the charging plan
     """
     for my_node in my_node_list:
-        cover = ef.node_coverage(my_plan, my_node)
+        cover = ef.node_coverage(my_plan, my_node, graph)
         my_node[1]["covered"] = cover
 
 
@@ -114,7 +114,7 @@ def support_stations_hilfe(station):
     return neediness
 
 
-def support_stations(my_plan, free_list):
+def support_stations(my_plan, free_list, graph):
     """
     choose a station which needs support due to highest waiting + charging time
     """
@@ -128,22 +128,22 @@ def support_stations(my_plan, free_list):
             chosen_node = station_sos[0]
         else:
             # look for nearest node that could support the station
-            dis_list = [ef.haversine(station_sos[0], my_node) for my_node in free_list]
+            dis_list = [ef.calculate_distance(graph, station_sos[0], my_node) for my_node in free_list]
             min_index = dis_list.index(min(dis_list))
             chosen_node = free_list[min_index]
     return chosen_node
 
 
 class Plan:
-    def __init__(self, my_node_list, my_node_dict, my_cost_dict, my_plan_file):
+    def __init__(self, my_node_list, my_node_dict, my_cost_dict, my_plan_file, graph):
         with (open(my_plan_file, "rb")) as f:
             self.plan = pickle.load(f)
-        self.plan = [ef.s_dictionnary(my_station, my_node_list) for my_station in self.plan]
-        my_node_list, _, _ = ef.station_seeking(self.plan, my_node_list, my_node_dict, my_cost_dict)
+        self.plan = [ef.s_dictionnary(my_station, my_node_list, graph) for my_station in self.plan]
+        my_node_list, _, _ = ef.station_seeking(self.plan, my_node_list, my_node_dict, my_cost_dict, graph)
         # update the dictionnary
-        self.plan = [ef.s_dictionnary(my_station, my_node_list) for my_station in self.plan]
+        self.plan = [ef.s_dictionnary(my_station, my_node_list, graph) for my_station in self.plan]
         self.norm_benefit, self.norm_cost, self.norm_charg, self.norm_wait, self.norm_travel = \
-            ef.existing_score(self.plan, my_node_list)
+            ef.existing_score(self.plan, my_node_list, graph)
         self.existing_plan = self.plan.copy()
         self.existing_plan = [s[0] for s in self.existing_plan]
 
@@ -198,8 +198,8 @@ class Station:
     def add_chargers(self, my_config):
         self.station[1] = my_config
 
-    def establish_dictionnary(self, node_list):
-        self.station = ef.s_dictionnary(self.station, node_list)
+    def establish_dictionnary(self, node_list, graph):
+        self.station = ef.s_dictionnary(self.station, node_list, graph)
 
 
 class StationPlacement(gym.Env):
@@ -209,7 +209,7 @@ class StationPlacement(gym.Env):
 
     def __init__(self, my_graph_file, my_node_file, my_plan_file):
         super(StationPlacement, self).__init__()
-        _graph, self.node_list = ef.prepare_graph(my_graph_file, my_node_file)
+        self.graph, self.node_list = ef.prepare_graph(my_graph_file, my_node_file)
         self.plan_file = my_plan_file
         self.node_list = [self.init_hilfe(my_node) for my_node in self.node_list]
         self.game_over = None
@@ -238,16 +238,16 @@ class StationPlacement(gym.Env):
         self.budget = ef.BUDGET
         self.game_over = False
         self.plan_instance = Plan(self.node_list, StationPlacement.node_dict, StationPlacement.cost_dict,
-                                  self.plan_file)
+                                  self.plan_file, self.graph)
         self.best_score, _, _, _, _, _ = ef.norm_score(self.plan_instance.plan, self.node_list,
                                                        self.plan_instance.norm_benefit, self.plan_instance.norm_charg,
-                                                       self.plan_instance.norm_wait, self.plan_instance.norm_travel)
+                                                       self.plan_instance.norm_wait, self.plan_instance.norm_travel, self.graph)
         self.plan_length = len(self.plan_instance.existing_plan)
         self.schritt = 0
         self.best_plan = []
         self.best_node_list = []
         self.config_dict = prepare_config()
-        coverage(self.node_list, self.plan_instance.plan)
+        coverage(self.node_list, self.plan_instance.plan, self.graph)
         obs = self.establish_observation()
         
         # Return obs AND an empty info dict (Required by new SB3/Gymnasium)
@@ -306,9 +306,9 @@ class StationPlacement(gym.Env):
         """
         for j in range(2):
             self.node_list, _, _ = ef.station_seeking(self.plan_instance.plan, self.node_list, StationPlacement.node_dict,
-                                             StationPlacement.cost_dict)
+                                             StationPlacement.cost_dict, self.graph)
             for i in range(len(self.plan_instance.plan)):
-                self.plan_instance.plan[i] = ef.total_number_EVs(self.plan_instance.plan[i], self.node_list)
+                self.plan_instance.plan[i] = ef.total_number_EVs(self.plan_instance.plan[i], self.node_list, self.graph)
                 self.plan_instance.plan[i] = ef.W_s(self.plan_instance.plan[i])
             j += 1
 
@@ -319,11 +319,11 @@ class StationPlacement(gym.Env):
         chosen_node, free_list_zero, config_index, action = self._control_action(my_action)
         if chosen_node in free_list_zero:
             # build new station
-            default_config = initial_solution(self.config_dict, self.node_list, chosen_node)
+            default_config = initial_solution(self.config_dict, self.node_list, chosen_node, self.graph)
             station_instance = Station()
             station_instance.add_position(chosen_node)
             station_instance.add_chargers(default_config)
-            station_instance.establish_dictionnary(self.node_list)
+            station_instance.establish_dictionnary(self.node_list, self.graph)
             # Step: Control budget
             self.budget_adjustment(station_instance.station)
             if not self.game_over:
@@ -341,7 +341,7 @@ class StationPlacement(gym.Env):
                 self.plan_instance.plan[station_index][1][config_index] += 1
         # Step: calculate reward
         reward = self.evaluation()
-        coverage(self.node_list, self.plan_instance.plan)
+        coverage(self.node_list, self.plan_instance.plan, self.graph)
         obs = self.establish_observation()
         # episode end conditions
         if len(self.plan_instance.plan) == len(self.node_list):
@@ -402,7 +402,7 @@ class StationPlacement(gym.Env):
                 chosen_node = choice(free_list)
             else:
                 self.budget, config_index = self.plan_instance.steal_column(stolen_station, self.budget)
-                chosen_node = support_stations(self.plan_instance.plan, free_list)
+                chosen_node = support_stations(self.plan_instance.plan, free_list, self.graph)
         return chosen_node, free_list, config_index, my_action
 
     def evaluation(self):
@@ -413,7 +413,7 @@ class StationPlacement(gym.Env):
         self.prepare_score()
         new_score, _, _, _, _, _ = ef.norm_score(self.plan_instance.plan, self.node_list,
                                                  self.plan_instance.norm_benefit, self.plan_instance.norm_charg,
-                                                 self.plan_instance.norm_wait, self.plan_instance.norm_travel)
+                                                 self.plan_instance.norm_wait, self.plan_instance.norm_travel, self.graph)
         new_score = max(new_score, -25)  # if negative score
         if new_score - self.best_score > 0:
             reward += (new_score - self.best_score)

@@ -83,5 +83,6 @@ if __name__ == '__main__':
     with open(f"../Graph/{location}/node_list_{location}.txt", 'w', encoding='utf-8') as file:
         file.write(str(node_list))
     
+    print(grid_density)
     pickle.dump(grid_density, open(f"../Graph/{location}/grid_density_{location}.pkl", "wb"))
     print("Success! Files saved in ../Graph/Hanoi/")

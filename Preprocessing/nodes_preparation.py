@@ -45,11 +45,11 @@ def generate_mock_data(location):
     df.to_csv(f"../data/{location}/OCM_simple{location}.csv", index=False)
     print("--- Mock Data Ready ---")
 
-def social_efficiency_upper_bound(my_node, my_node_list):
+def social_efficiency_upper_bound(my_node, my_node_list, graph):
     priv_CS = my_node[1].get("private CS", 0)
     I1_max = 0
     for other_node in my_node_list:
-        if ef.haversine(my_node, other_node) <= ef.RADIUS_MAX:
+        if ef.calculate_distance(graph, my_node, other_node) <= ef.RADIUS_MAX:
             I1_max += 1
     my_node[1]["I1_max"] = I1_max
     delta_benefit = I1_max * (1 - 0.1 * priv_CS)
@@ -113,7 +113,7 @@ if __name__ == '__main__':
 
     print("Calculating Social Efficiency (Upper Bounds)...")
     for node in node_list:
-        node[1]["upper bound"] = social_efficiency_upper_bound(node, node_list)
+        node[1]["upper bound"] = social_efficiency_upper_bound(node, node_list, graph)
 
     # Save final results
     with open(f"../Graph/nodes_extended_{location}.txt", 'w', encoding='utf-8') as file:
@@ -138,11 +138,11 @@ if __name__ == '__main__':
     # 3. Create the station object with full initialization
     # Must use s_dictionnary() to set all required keys (fee, capability, W_s, service rate, etc.)
     initial_station = [s_pos, s_config, {}]
-    initial_station = ef.s_dictionnary(initial_station, node_list)
+    initial_station = ef.s_dictionnary(initial_station, node_list, graph)
 
     # 4. Perform the first assignment to link nodes to this station
     # This populates the node[1]["charging station"] keys correctly
-    node_list, _, _ = ef.station_seeking([initial_station], node_list, {}, {})
+    node_list, _, _ = ef.station_seeking([initial_station], node_list, {}, {}, graph)
     existing_plan = [initial_station]
     
     # 6. Save final results with full metadata

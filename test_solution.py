@@ -31,15 +31,15 @@ def waiting_metric(my_plan):
 
 
 def eci_test(my_plan, my_node_list, my_norm_benefit, my_norm_charging, my_norm_waiting,
-             my_norm_travel):
+             my_norm_travel, graph):
     score, benefit, cost, charg_time, wait_time, cost_travel = ef.norm_score(my_plan, my_node_list, my_norm_benefit,
                                                                              my_norm_charging, my_norm_waiting,
-                                                                             my_norm_travel)
+                                                                             my_norm_travel, graph)
     return score
 
 
 def test(my_plan, my_node_list, my_basic_cost, my_norm_benefit, my_norm_charging, my_norm_waiting,
-         my_norm_travel, my_norm_score):
+         my_norm_travel, my_norm_score, graph):
     """
     prints results of the evaulation metrics
     """
@@ -47,7 +47,7 @@ def test(my_plan, my_node_list, my_basic_cost, my_norm_benefit, my_norm_charging
     wait_max = waiting_metric(my_plan)
     score, benefit, cost, charg_time, wait_time, cost_travel = ef.norm_score(my_plan, my_node_list, my_norm_benefit,
                                                                              my_norm_charging, my_norm_waiting,
-                                                                             my_norm_travel)
+                                                                             my_norm_travel, graph)
     # test if solution satisfies all constraints
     ef.constraint_check(my_plan, my_node_list, my_basic_cost)
     total_inst_cost = (sum([my_station[2]["fee"] for my_station in my_plan]) - my_basic_cost) / ef.BUDGET
@@ -60,7 +60,7 @@ def test(my_plan, my_node_list, my_basic_cost, my_norm_benefit, my_norm_charging
     print("Used budget: {} \n".format(total_inst_cost * 100))
 
 
-def prepare_existing_plan(my_plan, my_node_list):
+def prepare_existing_plan(my_plan, my_node_list, graph):
     my_cost_dict = {}
     my_node_dict = {}
     for my_node in my_node_list:
@@ -70,23 +70,23 @@ def prepare_existing_plan(my_plan, my_node_list):
 
     for j in range(2):
         for index in range(len(my_plan)):
-            my_plan[index] = ef.s_dictionnary(my_plan[index], my_node_list)
-        my_node_list, _, _ = ef.station_seeking(my_plan, my_node_list, my_node_dict, my_cost_dict)
+            my_plan[index] = ef.s_dictionnary(my_plan[index], my_node_list, graph)
+        my_node_list, _, _ = ef.station_seeking(my_plan, my_node_list, my_node_dict, my_cost_dict, graph)
         j += 1
     for index in range(len(my_plan)):
-        my_plan[index] = ef.s_dictionnary(my_plan[index], my_node_list)
+        my_plan[index] = ef.s_dictionnary(my_plan[index], my_node_list, graph)
     return my_node_list, my_plan
 
 
 def perform_test(my_node_file, my_basic_cost, my_result_file, my_norm_benefit, my_norm_charging,
-                 my_norm_waiting, my_norm_travel, my_norm_score):
+                 my_norm_waiting, my_norm_travel, my_norm_score, graph):
     with open(my_node_file, "r") as file:
         my_node_list = eval(file.readline())
     with (open(my_result_file, "rb")) as f:
         my_plan = pickle.load(f)
     print("Number of charging stations: {}".format(len(my_plan)))
     test(my_plan, my_node_list, my_basic_cost, my_norm_benefit, my_norm_charging, my_norm_waiting,
-         my_norm_travel, my_norm_score)
+         my_norm_travel, my_norm_score, graph)
 
 
 if __name__ == '__main__':
@@ -104,13 +104,13 @@ if __name__ == '__main__':
         plan = pickle.load(f)
     print("Number of already existing charging stations: {}".format(len(plan)))
 
-    node_list, plan = prepare_existing_plan(plan, node_list)
+    node_list, plan = prepare_existing_plan(plan, node_list, graph)
     basic_cost = sum([station[2]["fee"] for station in plan])
-    norm_benefit, norm_cost, norm_charging, norm_waiting, norm_travel = ef.existing_score(plan, node_list)
-    norm_score = eci_test(plan, node_list, norm_benefit, norm_charging, norm_waiting, norm_travel)
-    test(plan, node_list, basic_cost, norm_benefit, norm_charging, norm_waiting, norm_travel, norm_score)
+    norm_benefit, norm_cost, norm_charging, norm_waiting, norm_travel = ef.existing_score(plan, node_list, graph)
+    norm_score = eci_test(plan, node_list, norm_benefit, norm_charging, norm_waiting, norm_travel, graph)
+    test(plan, node_list, basic_cost, norm_benefit, norm_charging, norm_waiting, norm_travel, norm_score, graph)
 
     print("Reinforcement Learning")
     node_file = "Results/" + location + "/nodes_RL.txt"
     result_file = "Results/" + location + "/plan_RL.pkl"
-    perform_test(node_file, basic_cost, result_file, norm_benefit, norm_charging, norm_waiting, norm_travel, norm_score)
+    perform_test(node_file, basic_cost, result_file, norm_benefit, norm_charging, norm_waiting, norm_travel, norm_score, graph)
