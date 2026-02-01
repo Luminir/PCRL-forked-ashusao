@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE facilities SYSTEM "http://matsim.org/files/dtd/facilities_v1.dtd">
+<facilities name="PCRL_Generated_Charging_Stations">
+  <facility id="cs_1" x="105.8" y="21.0">
+    <activity type="charging_interaction" />
+    <attributes>
+      <attribute name="charging_plugs" class="java.lang.Integer">1</attribute>
+      <attribute name="charger_configuration" class="java.lang.String">1x7kW,0x22kW,0x50kW</attribute>
+    </attributes>
+  </facility>
+  <facility id="cs_3" x="105.82" y="21.02">
+    <activity type="charging_interaction" />
+    <attributes>
+      <attribute name="charging_plugs" class="java.lang.Integer">3</attribute>
+      <attribute name="charger_configuration" class="java.lang.String">0x7kW,2x22kW,1x50kW</attribute>
+    </attributes>
+  </facility>
+</facilities>

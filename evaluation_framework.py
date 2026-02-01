@@ -408,4 +408,17 @@ capacity_unit = 1  # [cap_unit] = kW, introduced for getting the units correctly
 VELOCITY = 23 * 1000  # based on m per hour, but here dimensionless
 
 my_inf = 10 ** 6
-my_dis_inf = 10 ** 7
+
+# MATSim Integration ###############################################################
+def export_solution_to_matsim(my_plan, my_node_list, output_file="output_facilities.xml"):
+    """
+    Exports the current charging plan to MATSim facilities.xml format.
+    """
+    try:
+        from Preprocessing.matsim_bridge import write_facilities_xml
+        write_facilities_xml(my_plan, my_node_list, output_file)
+        print(f"Exported MATSim facilities to {output_file}")
+    except ImportError:
+        print("Error: Could not import Preprocessing.matsim_bridge")
+    except Exception as e:
+        print(f"Error exporting to MATSim: {e}")
