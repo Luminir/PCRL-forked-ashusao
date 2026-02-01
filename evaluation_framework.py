@@ -1,10 +1,38 @@
 import osmnx as ox
 import numpy as np
 from math import sin, cos, sqrt, atan2, radians
+import sys
+import os
+
+# Add Preprocessing to path to import loader
+current_dir = os.path.dirname(os.path.abspath(__file__))
+preprocessing_dir = os.path.join(current_dir, 'Preprocessing')
+if preprocessing_dir not in sys.path:
+    sys.path.append(preprocessing_dir)
+
+try:
+    from distance_loader import DistanceMatrixLoader
+except ImportError:
+    print("Warning: Could not import DistanceMatrixLoader. Make sure it exists in Preprocessing/")
 
 """
 Utility model and help functions.
 """
+
+# GLOBAL LOADER SINGLETON
+MATRIX_LOADER = None
+
+def get_loader():
+    global MATRIX_LOADER
+    if MATRIX_LOADER is None:
+        # Assuming standard path structure
+        matrix_dir = os.path.join(current_dir, 'Graph', 'Hanoi', 'Matrix')
+        if os.path.exists(os.path.join(matrix_dir, 'dist_matrix.npy')):
+            try:
+                MATRIX_LOADER = DistanceMatrixLoader(matrix_dir)
+            except Exception as e:
+                print(f"Failed to load Matrix: {e}")
+    return MATRIX_LOADER
 
 def prepare_graph(my_graph_file, my_node_file):
     """
@@ -116,40 +144,34 @@ def haversine_fallback(s_pos, my_node):
 
 def calculate_distance(graph, s_pos, my_node):
     """
-    Calculate network-based distance using OSMnx graph shortest path.
-    Falls back to Haversine formula if network path cannot be found.
+    Calculate network-based distance using Pre-computed Matrix (O(1) lookup).
+    Falls back to Haversine formula if Matrix not loaded or node not found.
     
     Args:
-        graph: OSMnx graph object
-        s_pos: station position node (tuple of node_id and attributes dict)
-        my_node: target node (tuple of node_id and attributes dict)
-    
-    Returns:
-        distance in meters
+        graph: Not used for Matrix lookup, kept for compatibility
+        s_pos: station position node 
+        my_node: target node
     """
-    try:
-        # Extract GPS coordinates
-        lon1, lat1 = s_pos[1]['x'], s_pos[1]['y']
-        lon2, lat2 = my_node[1]['x'], my_node[1]['y']
-        
-        # Find nearest graph nodes to the GPS coordinates
-        import networkx as nx
-        orig_node = ox.nearest_nodes(graph, lon1, lat1)
-        dest_node = ox.nearest_nodes(graph, lon2, lat2)
-        
-        # Calculate shortest path length
-        distance = nx.shortest_path_length(graph, orig_node, dest_node, weight='length')
-        
-        # Ensure minimum distance to avoid division by zero
-        if distance < 0.1:
-            distance = 0.1
+    loader = get_loader()
+    
+    if loader:
+        try:
+            # Extract Node IDs
+            node_id_1 = s_pos[0]
+            node_id_2 = my_node[0]
             
-        return distance
+            dist = loader.get_distance(node_id_1, node_id_2)
+            
+            if dist != float('inf'):
+                return max(dist, 0.1) # Avoid zero division
+                
+        except Exception:
+            pass # Fail silently to fallback
+            
+    # Fall back to Haversine if matrix failed
+    return haversine_fallback(s_pos, my_node)
         
-    except Exception as e:
-        # Debug: print the error to see why it's falling back
-        print(f"Distance calculation fallback due to: {type(e).__name__}: {e}")
-        return haversine_fallback(s_pos, my_node)
+
 
 
 
